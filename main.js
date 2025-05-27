@@ -1,3 +1,4 @@
+
 function getProjectionMatrix(fx, fy, width, height) {
     const znear = 0.01;
     const zfar = 10;
@@ -122,6 +123,10 @@ function createWorker(self) {
       faceColors;    // Float32Array [r0,g0,b0,a0, …]
   let depthIndex = new Uint32Array();
 
+  const ALPHA_EPS = 0.002;
+  let sorting = false;
+  let latestProj = null;
+
   function parsePLY(input) {
     const dv = new DataView(input);
     // 1) read header text
@@ -156,7 +161,7 @@ function createWorker(self) {
       const g = dv.getUint8(off++)/255;
       const b = dv.getUint8(off++)/255;
       const a = dv.getFloat32(off,true); off+=4;
-      if (a < 0.01) continue; // filter out faces with insufficient alpha
+      if (a < ALPHA_EPS) continue; // filter out faces with insufficient alpha
       tempIndices.push(i0, i1, i2);
       tempColors.push(r, g, b, a);
     }
@@ -182,8 +187,8 @@ function createWorker(self) {
       const cy = (positions[3*i0+1]+positions[3*i1+1]+positions[3*i2+1])/3;
       const cz = (positions[3*i0+2]+positions[3*i1+2]+positions[3*i2+2])/3;
       // project
-      const w0 = proj[ 0]*cx + proj[ 4]*cy + proj[ 8]*cz + proj[12];
-      const w1 = proj[ 1]*cx + proj[ 5]*cy + proj[ 9]*cz + proj[13];
+      // const w0 = proj[ 0]*cx + proj[ 4]*cy + proj[ 8]*cz + proj[12];
+      // const w1 = proj[ 1]*cx + proj[ 5]*cy + proj[ 9]*cz + proj[13];
       const w2 = proj[ 2]*cx + proj[ 6]*cy + proj[10]*cz + proj[14];
       const w3 = proj[ 3]*cx + proj[ 7]*cy + proj[11]*cz + proj[15];
       const d = (w2/w3);
@@ -213,23 +218,39 @@ function createWorker(self) {
     return sorted.reverse();
   }
 
+  async function doSort(){
+    sorting = true;
+    // grab & clear the proj you’ll process
+    const vp = latestProj;
+    latestProj = null;
+    const order = sortFaces(vp);
+    postMessage({ depthOrder: order.buffer }, [order.buffer]);
+    if(latestProj !== null){
+      // more work piled up — immediately loop
+      await doSort();
+    } else {
+      sorting = false;
+    }
+  }
+
   // worker.onmessage
-  let sortedIDs;
   self.onmessage = e => {
     if (e.data.ply) {
       parsePLY(e.data.ply);
-        // send back all the parsed buffers plus faceCount:
-        self.postMessage({
-            init: true,
-            positions: positions.buffer,
-            faceIndices: faceIndices.buffer,
-            faceColors: faceColors.buffer,
-            faceCount
-        });
+      // send back all the parsed buffers plus faceCount:
+      self.postMessage({
+        init: true,
+        positions: positions.buffer,
+        faceIndices: faceIndices.buffer,
+        faceColors: faceColors.buffer,
+        faceCount
+      });
     }
     else if (e.data.viewProj) {
-      const order = sortFaces(e.data.viewProj);
-      self.postMessage({ depthOrder: order.buffer }, [order.buffer]);
+      latestProj = e.data.viewProj;
+      if(!sorting){
+        doSort();
+      }
     }
   };
 }
