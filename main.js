@@ -1,6 +1,6 @@
 
 function getProjectionMatrix(fx, fy, width, height) {
-    const znear = 0.01;
+    const znear = 0.1;
     const zfar = 10;
     return [
         [(2 * fx) / width, 0, 0, 0],
@@ -123,7 +123,7 @@ function createWorker(self) {
       faceColors;    // Float32Array [r0,g0,b0,a0, …]
   let depthIndex = new Uint32Array();
 
-  const ALPHA_EPS = 0.002;
+  const ALPHA_EPS = 0.01;
   let wantSort    = false;
   let latestProj = null;
 
@@ -189,9 +189,11 @@ function createWorker(self) {
       // project
       // const w0 = proj[ 0]*cx + proj[ 4]*cy + proj[ 8]*cz + proj[12];
       // const w1 = proj[ 1]*cx + proj[ 5]*cy + proj[ 9]*cz + proj[13];
-      const w2 = proj[ 2]*cx + proj[ 6]*cy + proj[10]*cz + proj[14];
-      const w3 = proj[ 3]*cx + proj[ 7]*cy + proj[11]*cz + proj[15];
-      const d = (w2/w3);
+      const camZ = proj[ 2]*cx + proj[ 6]*cy + proj[10]*cz + proj[14];
+      // const w3 = proj[ 3]*cx + proj[ 7]*cy + proj[11]*cz + proj[15];
+      // const d = (w2/w3);
+      const d = camZ;
+
       depths[f]=d;
       if (d<mi) mi=d;
       if (d>ma) ma=d;
@@ -709,12 +711,12 @@ async function main() {
         if (activeKeys.includes("ArrowRight"))
             inv = translate4(inv, 0.03, 0, 0);
         // inv = rotate4(inv, 0.01, 0, 1, 0);
-        if (activeKeys.includes("KeyA")) inv = rotate4(inv, -0.01, 0, 1, 0);
-        if (activeKeys.includes("KeyD")) inv = rotate4(inv, 0.01, 0, 1, 0);
-        if (activeKeys.includes("KeyQ")) inv = rotate4(inv, 0.1, 0, 0, 1);
-        if (activeKeys.includes("KeyE")) inv = rotate4(inv, -0.1, 0, 0, 1);
-        if (activeKeys.includes("KeyW")) inv = rotate4(inv, 0.005, 1, 0, 0);
-        if (activeKeys.includes("KeyS")) inv = rotate4(inv, -0.005, 1, 0, 0);
+        if (activeKeys.includes("KeyA")) inv = rotate4(inv, -0.05, 0, 1, 0);
+        if (activeKeys.includes("KeyD")) inv = rotate4(inv, 0.05, 0, 1, 0);
+        if (activeKeys.includes("KeyQ")) inv = rotate4(inv, 0.05, 0, 0, 1);
+        if (activeKeys.includes("KeyE")) inv = rotate4(inv, -0.05, 0, 0, 1);
+        if (activeKeys.includes("KeyW")) inv = rotate4(inv, 0.05, 1, 0, 0);
+        if (activeKeys.includes("KeyS")) inv = rotate4(inv, -0.05, 1, 0, 0);
 
         if (
             ["KeyJ", "KeyK", "KeyL", "KeyI"].some((k) => activeKeys.includes(k))
