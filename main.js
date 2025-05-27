@@ -124,7 +124,7 @@ function createWorker(self) {
   let depthIndex = new Uint32Array();
 
   const ALPHA_EPS = 0.002;
-  let sorting = false;
+  let wantSort    = false;
   let latestProj = null;
 
   function parsePLY(input) {
@@ -218,21 +218,6 @@ function createWorker(self) {
     return sorted.reverse();
   }
 
-  async function doSort(){
-    sorting = true;
-    // grab & clear the proj you’ll process
-    const vp = latestProj;
-    latestProj = null;
-    const order = sortFaces(vp);
-    postMessage({ depthOrder: order.buffer }, [order.buffer]);
-    if(latestProj !== null){
-      // more work piled up — immediately loop
-      await doSort();
-    } else {
-      sorting = false;
-    }
-  }
-
   // worker.onmessage
   self.onmessage = e => {
     if (e.data.ply) {
@@ -248,11 +233,28 @@ function createWorker(self) {
     }
     else if (e.data.viewProj) {
       latestProj = e.data.viewProj;
-      if(!sorting){
-        doSort();
-      }
+      wantSort   = true;
     }
   };
+
+  function sortLoop() {
+    if (wantSort) {
+      wantSort = false;            // consume the flag
+      const vp = latestProj;       // grab the freshest camera
+      latestProj = null;           // clear it
+
+      // do exactly one expensive sort
+      const order = sortFaces(vp);
+
+      // send it back
+      self.postMessage({ depthOrder: order.buffer }, [order.buffer]);
+    }
+    // always re-schedule immediately to pick up any new messages
+    setTimeout(sortLoop, 0);
+  }
+
+  // kick things off
+  sortLoop();
 }
 // ─────────────── vertexShaderSource ───────────────
 const vertexShaderSource = `#version 300 es
@@ -673,7 +675,6 @@ async function main() {
 
     let lastFrame = 0;
     let avgFps = 0;
-    let start = 0;
 
     const frame = (now) => {
         if (vertexCount == 0) {
