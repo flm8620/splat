@@ -133,11 +133,10 @@ function createWorker(self) {
       if (m = l.match(/^element vertex (\d+)/)) vertexCount = +m[1];
       if (m = l.match(/^element face (\d+)/))   faceCount   = +m[1];
     }
-    // 2) allocate
-    positions   = new Float32Array(vertexCount*3);
-    faceIndices = new Uint32Array(faceCount*3);
-    faceColors  = new Float32Array(faceCount*4);
-
+    // 2) allocate vertices; prepare temporary arrays for faces
+    positions = new Float32Array(vertexCount * 3);
+    const tempIndices = [];
+    const tempColors = [];
     // 3) scan binary body
     let off = eoh;
     // vertices
@@ -149,23 +148,22 @@ function createWorker(self) {
     // faces
     for (let f=0; f<faceCount; f++) {
       const n = dv.getUint8(off); off++;
-      if (n !== 3) {
-        off += n*4 + 3 + 4;
-        faceIndices.set([0,0,0], f*3);
-        faceColors .set([0,0,0,0], f*4);
-        continue;
-      }
       const i0 = dv.getInt32(off,true); off+=4;
       const i1 = dv.getInt32(off,true); off+=4;
       const i2 = dv.getInt32(off,true); off+=4;
-      faceIndices.set([i0,i1,i2], f*3);
 
       const r = dv.getUint8(off++)/255;
       const g = dv.getUint8(off++)/255;
       const b = dv.getUint8(off++)/255;
       const a = dv.getFloat32(off,true); off+=4;
-      faceColors.set([r,g,b,a], f*4);
+      if (a < 0.01) continue; // filter out faces with insufficient alpha
+      tempIndices.push(i0, i1, i2);
+      tempColors.push(r, g, b, a);
     }
+    // update faceCount and allocate final arrays with valid faces only
+    faceCount = tempIndices.length / 3;
+    faceIndices = new Uint32Array(tempIndices);
+    faceColors = new Float32Array(tempColors);
   }
 
   // 16-bit counting sort on centroids
@@ -691,8 +689,8 @@ async function main() {
         // inv = rotate4(inv, 0.01, 0, 1, 0);
         if (activeKeys.includes("KeyA")) inv = rotate4(inv, -0.01, 0, 1, 0);
         if (activeKeys.includes("KeyD")) inv = rotate4(inv, 0.01, 0, 1, 0);
-        if (activeKeys.includes("KeyQ")) inv = rotate4(inv, 0.01, 0, 0, 1);
-        if (activeKeys.includes("KeyE")) inv = rotate4(inv, -0.01, 0, 0, 1);
+        if (activeKeys.includes("KeyQ")) inv = rotate4(inv, 0.1, 0, 0, 1);
+        if (activeKeys.includes("KeyE")) inv = rotate4(inv, -0.1, 0, 0, 1);
         if (activeKeys.includes("KeyW")) inv = rotate4(inv, 0.005, 1, 0, 0);
         if (activeKeys.includes("KeyS")) inv = rotate4(inv, -0.005, 1, 0, 0);
 
