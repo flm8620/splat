@@ -356,7 +356,7 @@ async function main() {
       const rx=(maxX-minX), ry=(maxY-minY), rz=(maxZ-minZ);
       const r=Math.max(rx,ry,rz)/2;
       // place eye along +Z axis
-      const eye=[cx, cy, cz + r*2];
+      const eye=[cx + r * 0.3, cy, cz];
       // compute lookAt matrix
       const up=[0,1,0];
       const z0=eye[0]-cx, z1=eye[1]-cy, z2=eye[2]-cz;
