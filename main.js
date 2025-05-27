@@ -1,6 +1,6 @@
 function getProjectionMatrix(fx, fy, width, height) {
     const znear = 0.01;
-    const zfar = 100;
+    const zfar = 10;
     return [
         [(2 * fx) / width, 0, 0, 0],
         [0, -(2 * fy) / height, 0, 0],
@@ -169,7 +169,7 @@ function createWorker(self) {
   }
 
   // 16-bit counting sort on centroids
-  function sortFaces(viewProj) {
+  function sortFaces(proj) {
     if (!positions) return;
     const N = faceCount;
     // compute depths
@@ -184,10 +184,10 @@ function createWorker(self) {
       const cy = (positions[3*i0+1]+positions[3*i1+1]+positions[3*i2+1])/3;
       const cz = (positions[3*i0+2]+positions[3*i1+2]+positions[3*i2+2])/3;
       // project
-      const w0 = viewProj[ 0]*cx + viewProj[ 4]*cy + viewProj[ 8]*cz + viewProj[12];
-      const w1 = viewProj[ 1]*cx + viewProj[ 5]*cy + viewProj[ 9]*cz + viewProj[13];
-      const w2 = viewProj[ 2]*cx + viewProj[ 6]*cy + viewProj[10]*cz + viewProj[14];
-      const w3 = viewProj[ 3]*cx + viewProj[ 7]*cy + viewProj[11]*cz + viewProj[15];
+      const w0 = proj[ 0]*cx + proj[ 4]*cy + proj[ 8]*cz + proj[12];
+      const w1 = proj[ 1]*cx + proj[ 5]*cy + proj[ 9]*cz + proj[13];
+      const w2 = proj[ 2]*cx + proj[ 6]*cy + proj[10]*cz + proj[14];
+      const w3 = proj[ 3]*cx + proj[ 7]*cy + proj[11]*cz + proj[15];
       const d = (w2/w3);
       depths[f]=d;
       if (d<mi) mi=d;
@@ -227,10 +227,7 @@ function createWorker(self) {
             faceIndices: faceIndices.buffer,
             faceColors: faceColors.buffer,
             faceCount
-        }, [
-            positions.buffer,
-            faceColors.buffer
-        ]);
+        });
     }
     else if (e.data.viewProj) {
       const order = sortFaces(e.data.viewProj);
@@ -307,7 +304,8 @@ async function main() {
         console.error(gl.getProgramInfoLog(program));
 
     gl.disable(gl.DEPTH_TEST); // Disable depth testing
-
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
     // Enable blending
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -352,9 +350,8 @@ async function main() {
         if(x<minX) minX=x; if(y<minY) minY=y; if(z<minZ) minZ=z;
         if(x>maxX) maxX=x; if(y>maxY) maxY=y; if(z>maxZ) maxZ=z;
       }
-      const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
-      const rx=(maxX-minX), ry=(maxY-minY), rz=(maxZ-minZ);
-      const r=Math.max(rx,ry,rz)/2;
+      const cx=0, cy=0, cz=0;
+      const r=1;
       // place eye along +Z axis
       const eye=[cx + r * 0.3, cy, cz];
       // compute lookAt matrix
@@ -531,9 +528,6 @@ async function main() {
             inv = rotate4(inv, dx, 0, 1, 0);
             inv = rotate4(inv, -dy, 1, 0, 0);
             inv = translate4(inv, 0, 0, -d);
-            // let postAngle = Math.atan2(inv[0], inv[10])
-            // inv = rotate4(inv, postAngle - preAngle, 0, 0, 1)
-            // console.log(postAngle)
             viewMatrix = invert4(inv);
 
             startX = e.clientX;
@@ -573,7 +567,6 @@ async function main() {
                 startY = e.touches[0].clientY;
                 down = 1;
             } else if (e.touches.length === 2) {
-                // console.log('beep')
                 startX = e.touches[0].clientX;
                 altX = e.touches[1].clientX;
                 startY = e.touches[0].clientY;
@@ -662,16 +655,6 @@ async function main() {
     let lastFrame = 0;
     let avgFps = 0;
     let start = 0;
-
-    window.addEventListener("gamepadconnected", (e) => {
-        const gp = navigator.getGamepads()[e.gamepad.index];
-        console.log(
-            `Gamepad connected at index ${gp.index}: ${gp.id}. It has ${gp.buttons.length} buttons and ${gp.axes.length} axes.`,
-        );
-    });
-    window.addEventListener("gamepaddisconnected", (e) => {
-        console.log("Gamepad disconnected");
-    });
 
     const frame = (now) => {
         if (vertexCount == 0) {
