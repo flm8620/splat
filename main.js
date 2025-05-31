@@ -355,7 +355,7 @@ async function main() {
       canvas.width  = innerWidth;
       canvas.height = innerHeight;
       gl.viewport(0, 0, canvas.width, canvas.height);
-      projectionMatrix = getProjectionMatrix(canvas.width/2, canvas.width/2, canvas.width, canvas.height);
+      projectionMatrix = getProjectionMatrix(canvas.width*0.4, canvas.width*0.4, canvas.width, canvas.height);
       gl.uniformMatrix4fv(u_proj, false, projectionMatrix);
     };
     window.addEventListener('resize', resize);
@@ -695,14 +695,14 @@ async function main() {
             if (shiftKey) {
                 inv = translate4(inv, 0, -0.03, 0);
             } else {
-                inv = translate4(inv, 0, 0, 0.1);
+                inv = translate4(inv, 0, 0, 0.03);
             }
         }
         if (activeKeys.includes("ArrowDown")) {
             if (shiftKey) {
                 inv = translate4(inv, 0, 0.03, 0);
             } else {
-                inv = translate4(inv, 0, 0, -0.1);
+                inv = translate4(inv, 0, 0, -0.03);
             }
         }
         if (activeKeys.includes("ArrowLeft"))
